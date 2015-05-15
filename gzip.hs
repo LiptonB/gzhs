@@ -1,7 +1,7 @@
-import Text.Parsec.ByteString.Lazy
 import Control.Applicative ((<*), (*>))
 import Data.Char (chr)
 import Data.Word
+import Data.Binary.Get
 import qualified Data.ByteString.Lazy as L
 
 -- type GZipFile = [Member]
@@ -24,8 +24,10 @@ import qualified Data.ByteString.Lazy as L
 -- method :: GenParser Word8 st Char
 -- method = char $ chr 8
 
-sample :: L.ByteString
+sample,sample2,sample3 :: L.ByteString
 sample = L.pack $ [31, 139, 8, 0] ++ toBytes 4 mtime ++ [4, 3]
+sample2 = L.pack $ [31, 139, 6, 0] ++ toBytes 4 mtime ++ [4, 3]
+sample3 = L.pack $ [31, 139, 8, 0] ++ toBytes 4 mtime
 
 mtime :: Int
 mtime = 1431284945
@@ -38,19 +40,13 @@ fromBytes :: [Word8] -> Int
 fromBytes [] = 0
 fromBytes (w:ws) = fromIntegral w + 256 * fromBytes ws
 
-parseHeader :: L.ByteString -> Either String (Word8, Int, Word8, Word8)
-parseHeader s =
-    case L.splitAt 3 s of
-      (ids, t) | ids /= L.pack [31, 139, 8] -> Left "Incorrect ID field"
-               | otherwise ->
-                  case L.uncons t of
-                    Nothing -> Left "No flags"
-                    Just (flags, t) ->
-                        let (mtime, r) = L.splitAt 4 t in
-                            case L.uncons r of
-                              Nothing -> Left "No mtime"
-                              Just (xfl, r) ->
-                                  case L.uncons r of
-                                    Nothing -> Left "No os"
-                                    Just (os, r) ->
-                                        Right (flags, (fromBytes . L.unpack) mtime, xfl, os)
+parseHeaderGet :: Get (Word8, Int, Word8, Word8)
+parseHeaderGet = do
+    ids <- getLazyByteString 3
+    flags <- getWord8
+    mtime <- getLazyByteString 4
+    xfl <- getWord8
+    os <- getWord8
+    if ids == L.pack [31, 139, 8]
+        then return (flags, (fromBytes . L.unpack) mtime, xfl, os)
+        else fail "Incorrect IDs"
