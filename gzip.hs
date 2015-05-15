@@ -1,4 +1,4 @@
-import Control.Applicative ((<*), (*>))
+import Control.Applicative
 import Data.Char (chr)
 import Data.Word
 import Data.Binary.Get
@@ -40,13 +40,17 @@ fromBytes :: [Word8] -> Int
 fromBytes [] = 0
 fromBytes (w:ws) = fromIntegral w + 256 * fromBytes ws
 
-parseHeaderGet :: Get (Word8, Int, Word8, Word8)
-parseHeaderGet = do
-    ids <- getLazyByteString 3
-    flags <- getWord8
-    mtime <- getLazyByteString 4
-    xfl <- getWord8
-    os <- getWord8
-    if ids == L.pack [31, 139, 8]
-        then return (flags, (fromBytes . L.unpack) mtime, xfl, os)
-        else fail "Incorrect IDs"
+parseHeader :: Get (Word8, Int, Word8, Word8)
+parseHeader =
+    checkIds *> getHeaderVals
+
+checkIds = do
+  ids <- getLazyByteString 3
+  if ids == L.pack [31, 139, 8]
+    then return ()
+    else fail "Incorrect IDs"
+
+getHeaderVals = (,,,) <$> getWord8 <*> getMtime <*> getWord8 <*> getWord8
+
+getMtime :: Get Int
+getMtime = (fromBytes . L.unpack) <$> getLazyByteString 4
