@@ -2,16 +2,24 @@ import Control.Applicative
 import Data.Char (chr)
 import Data.Word
 import Data.Binary.Get
+import Data.Bits
 import qualified Data.ByteString.Lazy as L
 
 -- type GZipFile = [Member]
--- data GZipHeader = GZipHeader {
---       flags :: [GZipFlag]
---     , mtime :: Int
---     , xlen :: Int
---     , crc32 :: [Word8]
---     , isize :: Int
---     }
+data GZipHeader = GZipHeader {
+      gzhFlags :: Word8
+    , gzhMtime :: Int
+    , gzhXfl :: Word8
+    , gzhOs :: Word8
+    , gzhText :: Bool
+    , gzhExtra :: Maybe L.ByteString
+    , gzhName :: Maybe L.ByteString
+    , gzhComment :: Maybe L.ByteString
+    , gzhCrc :: Maybe L.ByteString
+    }
+    deriving (Show)
+
+data GZipFlag = FTEXT | FEXTRA | FNAME | FCOMMENT | FHCRC
 -- gzipFile :: GenParser Char st [String]
 -- gzipFile = many member <* eof
 
@@ -40,17 +48,63 @@ fromBytes :: [Word8] -> Int
 fromBytes [] = 0
 fromBytes (w:ws) = fromIntegral w + 256 * fromBytes ws
 
-parseHeader :: Get (Word8, Int, Word8, Word8)
-parseHeader =
-    checkIds *> getHeaderVals
+parseHeader :: Get GZipHeader
+parseHeader = do
+    header <- checkIds *> getHeaderVals
+    header' <- if hasFlag FEXTRA header
+               then parseExtra header else return header
+    header'' <- if hasFlag FNAME header'
+                then parseName header' else return header'
+    header''' <- if hasFlag FCOMMENT header''
+                 then parseComment header'' else return header''
+    if hasFlag FHCRC header''' then parseCrc header''' else return header'''
 
+testFlag :: Bits a => GZipFlag -> a -> Bool
+testFlag flag = flip testBit (flagToBit flag)
+
+hasFlag :: GZipFlag -> GZipHeader -> Bool
+hasFlag flag = testFlag flag . gzhFlags
+
+flagToBit FTEXT = 0
+flagToBit FHCRC = 1
+flagToBit FEXTRA = 2
+flagToBit FNAME = 3
+flagToBit FCOMMENT = 4
+
+parseExtra header = do
+  xlen <- (fromBytes . L.unpack) <$> getLazyByteString 2
+  extra <- getLazyByteString (fromIntegral xlen)
+  return header { gzhExtra = Just extra }
+
+parseName header = do
+  name <- getLazyByteStringNul
+  return header { gzhName = Just name }
+
+parseComment header = do
+  comment <- getLazyByteStringNul
+  return header { gzhComment = Just comment }
+
+parseCrc header = do
+  crc <- getLazyByteString 2
+  return header { gzhCrc = Just crc }
+
+checkIds :: Get ()
 checkIds = do
   ids <- getLazyByteString 3
   if ids == L.pack [31, 139, 8]
     then return ()
     else fail "Incorrect IDs"
 
-getHeaderVals = (,,,) <$> getWord8 <*> getMtime <*> getWord8 <*> getWord8
+getHeaderVals :: Get GZipHeader
+getHeaderVals = do
+  flags <- getWord8
+  mtime <- getMtime
+  xfl <- getWord8
+  os <- getWord8
+  let text = testFlag FTEXT flags
+  return $ GZipHeader flags mtime xfl os text Nothing Nothing Nothing Nothing
 
 getMtime :: Get Int
 getMtime = (fromBytes . L.unpack) <$> getLazyByteString 4
+
+-- parseBlock :: Get (Maybe L.ByteString)
