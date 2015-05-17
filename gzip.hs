@@ -1,7 +1,9 @@
 import Control.Applicative
+import Control.Monad
 import Data.Char (chr)
 import Data.Word
 import Data.Binary.Get
+import qualified Data.Binary.Bits.Get as BG
 import Data.Bits
 import qualified Data.ByteString.Lazy as L
 
@@ -20,6 +22,8 @@ data GZipHeader = GZipHeader {
     deriving (Show)
 
 data GZipFlag = FTEXT | FEXTRA | FNAME | FCOMMENT | FHCRC
+
+data BType = Uncompressed | Fixed | Dynamic
 -- gzipFile :: GenParser Char st [String]
 -- gzipFile = many member <* eof
 
@@ -107,4 +111,27 @@ getHeaderVals = do
 getMtime :: Get Int
 getMtime = (fromBytes . L.unpack) <$> getLazyByteString 4
 
--- parseBlock :: Get (Maybe L.ByteString)
+parseBlocks :: BG.BitGet L.ByteString
+parseBlocks = do
+  (v, final) <- parseBlock
+  if final
+  then return v
+  else liftM (L.append v) parseBlocks
+
+btype :: Word8 -> BType
+btype 0 = Uncompressed
+btype 1 = Fixed
+btype 2 = Dynamic
+
+parseBlock :: BG.BitGet (L.ByteString, Bool)
+parseBlock = do
+  final <- BG.getBool
+  bt <- BG.getWord8 2
+  case btype bt of
+    Uncompressed -> parseUncompressed
+    Fixed -> parseFixed
+    Dynamic -> parseDynamic
+
+parseUncompressed = return (L.pack [], False)
+parseFixed = return (L.pack [], False)
+parseDynamic = return (L.pack [], False)
