@@ -3,9 +3,9 @@ import Control.Monad
 import Data.Char (chr)
 import Data.Word
 import Data.Binary.Get
-import qualified Data.Binary.Bits.Get as BG
 import Data.Bits
 import qualified Data.ByteString.Lazy as L
+import qualified BitGet as BG
 
 -- type GZipFile = [Member]
 data GZipHeader = GZipHeader {
@@ -125,7 +125,7 @@ btype 2 = Dynamic
 
 parseBlock :: BG.BitGet (L.ByteString, Bool)
 parseBlock = do
-  final <- BG.getBool
+  final <- BG.getBit
   bt <- BG.getWord8 2
   case btype bt of
     Uncompressed -> parseUncompressed
