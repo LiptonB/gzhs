@@ -123,15 +123,23 @@ btype 0 = Uncompressed
 btype 1 = Fixed
 btype 2 = Dynamic
 
-parseBlock :: BG.BitGet (L.ByteString, Bool)
+parseBlock :: BG.BitGet (L.ByteString -- uncompressed data of block
+                        , Bool)       -- whether block is final
 parseBlock = do
   final <- BG.getBit
   bt <- BG.getWord8 2
-  case btype bt of
+  bytes <- case btype bt of
     Uncompressed -> parseUncompressed
     Fixed -> parseFixed
     Dynamic -> parseDynamic
+  return (bytes, final)
 
-parseUncompressed = return (L.pack [], False)
-parseFixed = return (L.pack [], False)
-parseDynamic = return (L.pack [], False)
+parseUncompressed :: BG.BitGet L.ByteString
+parseUncompressed = do
+  BG.skipToNextByte
+  len <- BG.getAlignedWord16le
+  nlen <- BG.getAlignedWord16le
+  BG.getAlignedLazyByteString (fromIntegral len)
+
+parseFixed = return (L.pack [])
+parseDynamic = return (L.pack [])

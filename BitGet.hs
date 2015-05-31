@@ -2,6 +2,8 @@ module BitGet
 ( BitGet
 , getBit
 , getWord8
+, getAlignedWord16le
+, getAlignedLazyByteString
 , skipToNextByte
 , runBitGet
 ) where
@@ -40,6 +42,22 @@ getWord8 n = do
   modify $ advance n
   return $ readWord8 n s
 
+getAlignedWord16le :: BitGet Word16
+getAlignedWord16le = do
+  skipToNextByte
+  b1 <- getWord8 8
+  b2 <- getWord8 8
+  return (fromIntegral b2 `shiftL` 8 .|. fromIntegral b1)
+
+getAlignedLazyByteString :: Int -> BitGet L.ByteString
+getAlignedLazyByteString len = do
+  skipToNextByte
+  refreshBuffer
+  S _ buf buf2 <- get
+  modify $ advance 16
+  rest <- lift $ G.getLazyByteString (fromIntegral len - 2)
+  return $ buf `L.cons` buf2 `L.cons` rest
+
 readWord8 :: Int -> S -> Word8
 readWord8 n (S pos buf buf2)
   = word8FromBufs n pos buf buf2
@@ -51,7 +69,10 @@ word8FromBufs n pos buf buf2
 
 skipToNextByte :: BitGet ()
 skipToNextByte = modify skip
-                 where skip s = s { position = 8 }
+                 where skip s = s { position = newpos s }
+                       newpos s
+                        | position s == 0 = 0
+                        | otherwise = 8
 
 refreshBuffer :: BitGet ()
 refreshBuffer = do
@@ -60,6 +81,7 @@ refreshBuffer = do
   then do
     w <- lift G.getWord8
     put $ S (pos-8) buf2 w
+    refreshBuffer
   else return ()
 
 runBitGet :: BitGet a -> G.Get a
