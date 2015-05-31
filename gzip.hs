@@ -36,10 +36,8 @@ data BType = Uncompressed | Fixed | Dynamic
 -- method :: GenParser Word8 st Char
 -- method = char $ chr 8
 
-sample,sample2,sample3 :: L.ByteString
 sample = L.pack $ [31, 139, 8, 0] ++ toBytes 4 mtime ++ [4, 3]
-sample2 = L.pack $ [31, 139, 6, 0] ++ toBytes 4 mtime ++ [4, 3]
-sample3 = L.pack $ [31, 139, 8, 0] ++ toBytes 4 mtime
+sampleUncompressedBlock = L.pack $ [0x01, 5, 0, 0xff-5, 0xff-0, 10, 11, 12, 13, 14, 15]
 
 mtime :: Int
 mtime = 1431284945
