@@ -87,4 +87,4 @@ refreshBuffer = do
 runBitGet :: BitGet a -> G.Get a
 runBitGet bg = evalStateT bg initState
 
-initState = S 8 0 0
+initState = S 16 0 0
