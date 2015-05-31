@@ -42,15 +42,12 @@ getWord8 n = do
 
 readWord8 :: Int -> S -> Word8
 readWord8 n (S pos buf buf2)
-  | n == 0 = 0
-  | n <= 8 = word8FromBufs n pos buf buf2
-  | otherwise = error "n must be less than 8"
+  = word8FromBufs n pos buf buf2
 
-word8FromBufs n pos buf buf2 =
-  fromIntegral $ (val1 `shiftR` pos .|. val2 `shiftL` (8 - pos)) .&. mask n
-  where val1 = fromIntegral buf :: Word16
-        val2 = fromIntegral buf2 :: Word16
-        mask n = (1 `shiftL` n) - 1
+word8FromBufs n pos buf buf2
+  | n <= 8 = fromIntegral $ (buf `shiftR` pos .|. buf2 `shiftL` (8 - pos)) .&. mask n
+  | otherwise = error "n must be less than 8"
+      where mask n = (1 `shiftL` n) - 1
 
 skipToNextByte :: BitGet ()
 skipToNextByte = modify skip
