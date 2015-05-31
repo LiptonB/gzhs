@@ -33,7 +33,7 @@ advance n s@(S pos _ _) = s { position = pos+n }
 
 readBit :: S -> Bool
 readBit (S pos buf _) =
-  testBit buf (7-pos)
+  testBit buf pos
 
 getWord8 :: Int -> BitGet Word8
 getWord8 n = do

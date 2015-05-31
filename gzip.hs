@@ -134,7 +134,6 @@ parseBlock = do
 
 parseUncompressed :: BG.BitGet L.ByteString
 parseUncompressed = do
-  BG.skipToNextByte
   len <- BG.getAlignedWord16le
   nlen <- BG.getAlignedWord16le
   BG.getAlignedLazyByteString (fromIntegral len)
