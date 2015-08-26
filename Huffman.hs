@@ -3,32 +3,38 @@ module Huffman
 
 ) where
 
-import qualified Data.Map as Map
+import Data.Bits
+import Data.List
 
 type LengthSpec = [(Int, Int)]
+type Code = [(Int, Int)]
 
 fixedCodeLengthSpec :: LengthSpec
-fixedCodeLengthSpec =
-  [ (8, 144)  -- 0 - 143
+fixedCodeLengthSpec = [
+    (8, 144)  -- 0 - 143
   , (9, 112)  -- 144 - 255
   , (7, 24)   -- 256 - 279
   , (8, 8)    -- 280 - 287
   ]
 
-countSpecLengths :: LengthSpec -> [Int]
-countSpecLengths spec =
-  accumLengths spec (maxLen spec) []
-  where accumLengths spec 0 accum = accum
-        accumLengths spec len accum =
-          accumLengths spec (len-1) ((getCount len spec):accum)
-        getCount len = sum . map snd . filter ((== len) . fst)
-        maxLen = maximum . map fst
+-- Algorithm: Go through the (possibly expanded) list of lengths, and transform
+-- it into lists of code values that use each length. Then, compute the codes
+-- with appropriate lengths one by one
+indexesByLength :: LengthSpec -> [[Int]]
+indexesByLength spec = map (fetchAllWithLength spec) [1..(maxLen spec)]
+  where maxLen = maximum . map fst
+        fetchAllWithLength spec len = elemIndices len (expand spec)
 
---codeFromLengths :: [Int] -> Code
---codeFromLengths lengths =
+expand :: LengthSpec -> [Int]
+expand = concatMap expandPair
+  where expandPair (len, count) = replicate count len
 
--- IDEA: Go through the (possibly expanded) list of lengths, and transform it
--- into lists of code values that use each length. Then, we can easily assign
--- codes to those values once we compute the minimum code for each length. In
--- fact, we could probably compute the codes as we go as long as we sort the
--- value lists by code length before starting to assign.
+specToCode :: LengthSpec -> Code
+specToCode spec = buildCode 0 $ indexesByLength spec
+
+buildCode :: Int -> [[Int]] -> Code
+buildCode next ((val:vals):lists) = 
+  (next, val) : buildCode (next+1) (vals:lists)
+buildCode next (_:lists) = 
+  buildCode (next `shiftL` 1) lists
+buildCode _ _ = []
