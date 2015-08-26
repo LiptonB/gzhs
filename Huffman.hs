@@ -6,7 +6,10 @@ module Huffman
 import Data.Bits
 import Data.List
 
+-- Ordered list where each pair (a, b) signifies that the next b codes have
+-- length a
 type LengthSpec = [(Int, Int)]
+-- Map from code point to translated value
 type Code = [(Int, Int)]
 
 fixedCodeLengthSpec :: LengthSpec
