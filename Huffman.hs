@@ -1,6 +1,6 @@
 module Huffman
 (
-
+  getCodePoint
 ) where
 
 import Data.Bits
@@ -12,6 +12,8 @@ import qualified BitGet as BG
 type LengthSpec = [(Int, Int)]
 -- Map from code point to translated value
 type Code = [(Int, Int)]
+-- A CodeTree is a tree with the value of the code point at the leaf
+data CodeTree = Branch CodeTree CodeTree | Leaf Int | Empty
 
 
 fixedCodeLengthSpec :: LengthSpec
@@ -22,9 +24,9 @@ fixedCodeLengthSpec = [
   , (8, 8)    -- 280 - 287
   ]
 
--- Algorithm: Go through the (possibly expanded) list of lengths, and transform
--- it into lists of code values that use each length. Then, compute the codes
--- with appropriate lengths one by one
+-- Algorithm: Go through the expanded list of lengths, and transform it into
+-- lists of code values that use each length. Then, compute the codes with
+-- appropriate lengths one by one
 indexesByLength :: LengthSpec -> [[Int]]
 indexesByLength spec = map (fetchAllWithLength spec) [1..(maxLen spec)]
   where maxLen = maximum . map fst
@@ -44,15 +46,13 @@ buildCode next (_:lists) =
   buildCode (next `shiftL` 1) lists
 buildCode _ _ = []
 
-data CodeResponse = Value Int | Continue Code | Error String
-
-getCodePoint :: Code -> BG.BitGet Int
-getCodePoint code = do
-  nextBit <- BG.getBit
-  case codeLookup code nextBit of
-    Value val -> return val
-    Continue subcode -> getCodePoint subcode
-    Error msg -> error msg
-
-codeLookup :: Code -> Bool -> CodeResponse
-codeLookup code bit = Error "Not implemented yet"
+getCodePoint :: CodeTree -> BG.BitGet Int
+getCodePoint code =
+  case code of
+    Leaf val -> return val
+    Branch left right -> do
+      nextBit <- BG.getBit
+      if nextBit
+      then getCodePoint right
+      else getCodePoint left
+    Empty -> error "Unknown code"
