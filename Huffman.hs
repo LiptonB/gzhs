@@ -5,12 +5,14 @@ module Huffman
 
 import Data.Bits
 import Data.List
+import qualified BitGet as BG
 
 -- Ordered list where each pair (a, b) signifies that the next b codes have
 -- length a
 type LengthSpec = [(Int, Int)]
 -- Map from code point to translated value
 type Code = [(Int, Int)]
+
 
 fixedCodeLengthSpec :: LengthSpec
 fixedCodeLengthSpec = [
@@ -41,3 +43,16 @@ buildCode next ((val:vals):lists) =
 buildCode next (_:lists) = 
   buildCode (next `shiftL` 1) lists
 buildCode _ _ = []
+
+data CodeResponse = Value Int | Continue Code | Error String
+
+getCodePoint :: Code -> BG.BitGet Int
+getCodePoint code = do
+  nextBit <- BG.getBit
+  case codeLookup code nextBit of
+    Value val -> return val
+    Continue subcode -> getCodePoint subcode
+    Error msg -> error msg
+
+codeLookup :: Code -> Bool -> CodeResponse
+codeLookup code bit = Error "Not implemented yet"
